@@ -543,6 +543,14 @@ export default function StockWebsite() {
   const [screenerResults, setScreenerResults] = useState<any[]>([])
   const [screenerLoading, setScreenerLoading] = useState(false)
 
+  // 涨停雁阵 State (打板客核心功能)
+  const [limitFormation, setLimitFormation] = useState<any[]>([])
+  const [formationLoading, setFormationLoading] = useState(false)
+
+  // 市场情绪 State
+  const [marketSentiment, setMarketSentiment] = useState<any>(null)
+  const [sentimentLoading, setSentimentLoading] = useState(false)
+
   // Stock List State
   const [stockPage, setStockPage] = useState(1)
   const [stockTotal, setStockTotal] = useState(0)
@@ -594,6 +602,32 @@ export default function StockWebsite() {
       console.error("Failed to fetch sector data:", error)
     }
     setSectorLoading(false)
+  }
+
+  // Fetch 涨停雁阵 (打板客核心)
+  const fetchLimitFormation = async () => {
+    setFormationLoading(true)
+    try {
+      const response = await fetch("/api/limit-formation")
+      const data = await response.json()
+      if (data.success) setLimitFormation(data.formation || [])
+    } catch (error) {
+      console.error("Failed to fetch limit formation:", error)
+    }
+    setFormationLoading(false)
+  }
+
+  // Fetch 市场情绪
+  const fetchMarketSentiment = async () => {
+    setSentimentLoading(true)
+    try {
+      const response = await fetch("/api/market-sentiment")
+      const data = await response.json()
+      if (data.success) setMarketSentiment(data.sentiment)
+    } catch (error) {
+      console.error("Failed to fetch market sentiment:", error)
+    }
+    setSentimentLoading(false)
   }
 
   // Fetch Screener Results (AI选股)
