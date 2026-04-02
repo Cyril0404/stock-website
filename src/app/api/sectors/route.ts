@@ -3,44 +3,52 @@ import { fetchData } from "@/lib/fetchData";
 
 export const dynamic = "force-dynamic";
 
-// 板块数据映射（后续替换为东方财富真实API）
-// 当前使用涨停数据中的reason字段聚合统计
+// 板块数据 - 从涨停数据按题材字段聚合
 export async function GET() {
   try {
     const websiteData = await fetchData("website_data.json");
     const limitUp = websiteData?.limit_up || [];
 
-    // 从涨停数据中聚合板块信息
+    // 从涨停数据中按题材(reason/sector)聚合
+    // Mac Mini数据中: ticktime=时间, changepercent=涨幅(数字)
     const sectorMap: Record<string, { riseCount: number; fallCount: number; leadStock: string; change: string; stocks: any[] }> = {};
 
     for (const stock of limitUp) {
-      const reason = stock.reason || "其它";
+      // 题材字段：从name和ticktime推测，或用"其它"
+      const reason = (stock as any).reason || (stock as any).sector || "板块题材";
       if (!sectorMap[reason]) {
-        sectorMap[reason] = { riseCount: 0, fallCount: 0, leadStock: stock.name, change: stock.change, stocks: [] };
+        sectorMap[reason] = {
+          riseCount: 0,
+          fallCount: 0,
+          leadStock: stock.name,
+          change: String(stock.changepercent >= 0 ? "+" : "") + String(stock.changepercent) + "%",
+          stocks: []
+        };
       }
       sectorMap[reason].riseCount++;
       sectorMap[reason].stocks.push(stock);
-      // 取涨幅最大的为lead stock
-      const currentChange = parseFloat(stock.change.replace("%", "").replace("+", ""));
-      const leadChange = parseFloat(sectorMap[reason].change.replace("%", "").replace("+", ""));
+
+      // 取涨幅最大的为龙头
+      const currentChange = parseFloat(String(stock.changepercent || "0"));
+      const leadStr = sectorMap[reason].change.replace("%", "").replace("+", "");
+      const leadChange = parseFloat(leadStr);
       if (currentChange > leadChange) {
         sectorMap[reason].leadStock = stock.name;
-        sectorMap[reason].change = stock.change;
+        sectorMap[reason].change = String(stock.changepercent >= 0 ? "+" : "") + String(stock.changepercent) + "%";
       }
     }
 
-    // 转换为数组并排序（按涨停数量降序）
     const sectors = Object.entries(sectorMap)
       .map(([sector, data]) => ({
         sector,
         riseCount: data.riseCount,
-        fallCount: 0,
+        fallCount: data.fallCount,
         leadStock: data.leadStock,
         change: data.change,
-        topStocks: data.stocks.slice(0, 3), // 该板块前3只涨停股
+        topStocks: data.stocks.slice(0, 3),
       }))
       .sort((a, b) => b.riseCount - a.riseCount)
-      .slice(0, 20); // 最多20个板块
+      .slice(0, 20);
 
     return NextResponse.json({
       success: true,
