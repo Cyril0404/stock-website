@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
+import websiteDataRaw from "@/data/website_data.json";
 
 export const dynamic = "force-dynamic";
 
 // 板块数据 - 从涨停数据的行业字段聚合
-// 2026-04-03 v2: 使用 akshare 涨停数据的 reason 字段（行业分类）
-function getWebsiteData() {
-  try {
-    const filePath = join(process.cwd(), "data", "website_data.json");
-    return JSON.parse(readFileSync(filePath, "utf-8"));
-  } catch {
-    return null;
-  }
-}
+// 2026-04-03 v3: 使用 @import 替代 fs（Next.js构建时打包，解决serverless路径问题）
+type WebsiteData = {
+  updated_at: string;
+  indices: Record<string, any>;
+  limit_up: any[];
+  limit_down: any[];
+};
+
+const websiteData = websiteDataRaw as WebsiteData;
 
 export async function GET() {
   try {
-    const websiteData = getWebsiteData();
     if (!websiteData) {
       return NextResponse.json(
-        { success: false, error: "数据文件不存在" },
+        { success: false, error: "数据不存在" },
         { status: 200 }
       );
     }
@@ -38,7 +36,7 @@ export async function GET() {
 
     for (const stock of limitUp) {
       // 优先用 reason 字段（akshare行业），没有则用"其它"
-      const reason = (stock as any).reason || (stock as any).sector || "其它";
+      const reason = stock.reason || stock.sector || "其它";
       const change = stock.changepercent;
       const changeStr = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
 
@@ -57,7 +55,7 @@ export async function GET() {
         name: stock.name,
         code: stock.code,
         change: changeStr,
-        boards: (stock as any).boards || 1,
+        boards: stock.boards || 1,
       });
 
       // 取该板块涨幅最大的为龙头
