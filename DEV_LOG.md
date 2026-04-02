@@ -1,6 +1,6 @@
 # stock-website 开发日志
 
-> 更新日期：2026-04-02 15:10
+> 更新日期：2026-04-02 17:00
 > GitHub: https://github.com/Cyril0404/stock-website
 > 部署: https://stock-website.vercel.app / openstock.top
 
@@ -101,9 +101,9 @@ Vercel 自动部署 → openstock.top 更新
 
 ### 最新部署状态
 
-- **Vercel**: ✅ 已自动部署
-- **openstock.top**: ✅ 最新代码已上线
-- **GitHub**: ✅ 同步到 32b9c66
+- **Vercel**: ✅ 已通过 API 直接部署（GitHub 自动化断开）
+- **openstock.top**: ✅ 所有 API 恢复正常（indices/overview/limit_up/limit_down/stocks）
+- **GitHub**: ⚠️ 本地领先 origin/main 10个commit，网络超时未推送
 
 ---
 
@@ -116,16 +116,20 @@ Vercel 自动部署 → openstock.top 更新
 | 2026-04-02 | API routes 使用绝对路径在Vercel不工作 | 改用 process.cwd() 相对路径 |
 | 2026-04-02 | GitHub token 过期 | 更新为新token（详见TOOLS.md） |
 | 2026-04-02 | fetch_data.py 放错仓库 | 复制到 stock-website 并推送 |
+| 2026-04-02 | **API全500错误** — `process.cwd()` 在Vercel serverless返回`/var/task`非项目目录 | 重构数据层：API从GitHub raw URL直接fetch（`src/lib/fetchData.ts`），不依赖serverless文件系统 |
+| 2026-04-02 | **域名绑错项目** — `openstock.top`绑在旧项目`stock-website-deploy`（prj_mmmz3as），新代码部署到`stock-website`（prj_ssbVTcr） | 通过Vercel API删除域名绑定，重新添加到正确项目，域名恢复正常 |
+| 2026-04-02 | **GitHub push超时** — 本地领先origin/main 10个commit，网络超时未推送 | 待网络恢复后推送，或在CC终端手动执行 |
 
 ---
 
 ## 六、已知问题
 
-1. ❌ 缺少数据库（Supabase/PostgreSQL） - 目前所有数据来自抓取，无持久化
-2. ❌ 没有独立页面导航 - 所有功能挤在一个单页
-3. ❌ 没有用户系统 - 自选股无法保存
-4. ❌ AI功能缺失 - 没有早报、选股助手等
-5. ⚠️ Express API (api/index.js) 是本地开发用的，Vercel不跑
+1. ⚠️ GitHub自动化部署断开 - 本地领先10个commit未推送，需恢复网络后手动push
+2. ❌ 缺少数据库（Supabase/PostgreSQL） - 目前所有数据来自抓取，无持久化
+3. ❌ 没有独立页面导航 - 所有功能挤在一个单页
+4. ❌ 没有用户系统 - 自选股无法保存
+5. ❌ AI功能缺失 - 没有早报、选股助手等
+6. ⚠️ Express API (api/index.js) 是本地开发用的，Vercel不跑
 
 ---
 
@@ -140,15 +144,15 @@ stock-website/
 │   │   │   ├── limit_up/route.ts  # 涨停数据
 │   │   │   ├── limit_down/route.ts # 跌停数据
 │   │   │   ├── stocks/route.ts    # 自选股数据
-│   │   │   ├── overview/route.ts   # 概览数据
-│   │   │   └── config.ts           # API配置
+│   │   │   └── overview/route.ts   # 概览数据
 │   │   ├── page.tsx               # 主页面（所有功能单页）
 │   │   ├── layout.tsx             # 布局
 │   │   └── globals.css             # 全局样式
 │   ├── components/
 │   │   └── ui/                    # shadcn/ui 组件
 │   └── lib/
-│       └── utils.ts               # 工具函数
+│       ├── utils.ts               # 工具函数
+│       └── fetchData.ts           # GitHub raw数据获取层（30秒缓存）
 ├── data/
 │   └── website_data.json          # 抓取的行情数据
 ├── fetch_data.py                  # 数据抓取脚本
@@ -162,6 +166,29 @@ stock-website/
 ├── FEATURES.md                    # 参考网站功能拆解
 └── DEV_LOG.md                    # 本文档 - 开发日志
 ```
+
+---
+
+## 十、API数据层架构（2026-04-02 重构）
+
+### 重构原因
+Vercel serverless 函数里 `process.cwd()` 返回 `/var/task`（部署根目录），不是项目目录，导致所有 API routes 读不到 `data/website_data.json`，全部返回 500 错误。
+
+### 新架构
+
+```
+fetch_data.py (Mac Mini定时cron)
+    ↓
+website_data.json → git push → GitHub
+    ↓
+src/lib/fetchData.ts (GitHub raw URL fetch, 30秒缓存)
+    ↓
+API Routes (/api/indices, /api/overview, etc.)
+    ↓
+前端页面
+```
+
+**关键文件**：`src/lib/fetchData.ts` — 从 GitHub raw URL 直接 fetch JSON，30秒内存缓存，不依赖 serverless 文件系统。
 
 ---
 
