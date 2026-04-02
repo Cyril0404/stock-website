@@ -725,6 +725,8 @@ export default function StockWebsite() {
     fetchStocks(1) // Fetch stocks on mount
     fetchMorningReport() // Fetch AI早报
     fetchSectorData() // Fetch 板块数据
+    fetchLimitFormation() // Fetch 涨停雁阵
+    fetchMarketSentiment() // Fetch 市场情绪
     const interval = setInterval(fetchData, 30000) // Refresh every 30 seconds
     return () => clearInterval(interval)
   }, [])
@@ -989,33 +991,117 @@ export default function StockWebsite() {
 
           {/* 涨跌停 Tab */}
           <TabsContent value="limit">
-            <div className="space-y-8">
-              {/* 涨停 */}
+            <div className="space-y-6">
+
+              {/* 市场情绪指标 */}
+              {marketSentiment && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      <span className="font-semibold">市场情绪</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">
+                        涨停 <span className="font-bold text-red-500">{marketSentiment.limitUpCount}</span> / 跌停 <span className="font-bold text-green-500">{marketSentiment.limitDownCount}</span>
+                      </span>
+                      <span className={cn(
+                        "rounded-full px-3 py-0.5 text-sm font-bold",
+                        marketSentiment.label === "狂热" ? "bg-red-500/20 text-red-400" :
+                        marketSentiment.label === "活跃" ? "bg-orange-500/20 text-orange-400" :
+                        marketSentiment.label === "谨慎" ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-blue-500/20 text-blue-400"
+                      )}>
+                        {marketSentiment.label}
+                      </span>
+                    </div>
+                  </div>
+                  {/* 情绪进度条 */}
+                  <div className="h-2 w-full rounded-full bg-muted">
+                    <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${marketSentiment.score}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">情绪得分：{marketSentiment.score}/100 · 上证 {marketSentiment.shChange}</p>
+                </div>
+              )}
+
+              {/* 涨停雁阵图 */}
               <div>
-                <div className="mb-4 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-red-500" />
-                  <h2 className="text-lg font-semibold">涨停板</h2>
+                  <h2 className="text-lg font-semibold">涨停雁阵</h2>
+                  <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-500">连板进度</span>
+                </div>
+
+                {formationLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
+                  </div>
+                ) : limitFormation.length > 0 ? (
+                  <div className="space-y-4">
+                    {limitFormation.map((group: any) => (
+                      <div key={group.stage} className="rounded-xl border border-red-500/20 overflow-hidden">
+                        <div className="bg-red-500/10 px-4 py-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-red-400">{group.stage}</span>
+                            <span className="text-xs text-muted-foreground">共{group.total}只</span>
+                          </div>
+                          <span className="text-xs font-medium text-red-400">
+                            {group.total > 0 ? Math.round((group.success / group.total) * 100) : 0}%成功
+                          </span>
+                        </div>
+                        <div className="divide-y divide-border/50">
+                          {group.stocks.map((stock: any) => (
+                            <div key={stock.code} className="flex items-center justify-between px-4 py-2 hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-mono text-muted-foreground w-16">{stock.code}</span>
+                                <span className="font-medium">{stock.name}</span>
+                                <span className={cn(
+                                  "text-xs px-1.5 py-0.5 rounded",
+                                  stock.status === "首板" ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"
+                                )}>{stock.status}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-muted-foreground">{stock.reason || stock.ticktime}</span>
+                                <span className="font-mono text-sm font-bold text-red-400">{stock.changepercent || stock.change || stock.trade}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-muted p-6 text-center text-muted-foreground">
+                    <p>雁阵数据加载中，请稍后刷新...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 全部涨停 */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">全部涨停</h2>
                   <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-500">
-                    {apiLimitUp.length > 0 ? apiLimitUp.length : limitUpStocks.length}只
+                    {(apiLimitUp.length > 0 ? apiLimitUp : limitUpStocks).length}只
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {(apiLimitUp.length > 0 ? apiLimitUp : limitUpStocks).map((stock) => (
                     <StockRow key={stock.code} stock={stock} />
                   ))}
                 </div>
               </div>
 
-              {/* 跌停 */}
+              {/* 跌停板 */}
               <div>
-                <div className="mb-4 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2">
                   <TrendingDown className="h-5 w-5 text-green-500" />
                   <h2 className="text-lg font-semibold">跌停板</h2>
                   <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
-                    {apiLimitDown.length > 0 ? apiLimitDown.length : limitDownStocks.length}只
+                    {(apiLimitDown.length > 0 ? apiLimitDown : limitDownStocks).length}只
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {(apiLimitDown.length > 0 ? apiLimitDown : limitDownStocks).map((stock) => (
                     <StockRow key={stock.code} stock={stock} />
                   ))}
