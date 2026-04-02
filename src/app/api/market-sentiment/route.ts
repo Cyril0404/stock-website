@@ -5,33 +5,22 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const todayData = await fetchData("website_data.json");
-    if (!todayData) {
-      return NextResponse.json({ success: false, error: "数据获取失败" }, { status: 500 });
-    }
+    const data = await fetchData("website_data.json");
 
-    const limitUp = todayData.limit_up || [];
-    const limitDown = todayData.limit_down || [];
-    const indices = todayData.indices || [];
-
-    const limitUpCount = limitUp.length;
-    const limitDownCount = limitDown.length;
+    const limitUpCount = Array.isArray(data?.limit_up) ? data.limit_up.length : 0;
+    const limitDownCount = Array.isArray(data?.limit_down) ? data.limit_down.length : 0;
 
     // 找上证指数
+    const indices = Array.isArray(data?.indices) ? data.indices : [];
     let shChangeNum = 0;
     for (const idx of indices) {
-      const code = String(idx.code || "");
-      const name = String(idx.name || "");
-      if (code === "000001" || name.includes("上证")) {
-        const pct = idx.pct ?? idx.change ?? idx.changepercent;
-        if (pct !== undefined) {
-          shChangeNum = parseFloat(String(pct).replace("%", "").replace("+", ""));
-        }
+      if ((idx.code === "000001" || String(idx.name || "").includes("上证")) && idx.pct !== undefined) {
+        const raw = String(idx.pct);
+        shChangeNum = parseFloat(raw.replace("%", ""));
         break;
       }
     }
 
-    // 情绪得分
     const upRatio = limitUpCount / Math.max(limitDownCount, 1);
     const score = Math.min(100, Math.round(
       (limitUpCount * 0.5) + (upRatio * 10) + (shChangeNum > 0 ? 20 : 0)
@@ -54,9 +43,10 @@ export async function GET() {
         shChange: (shChangeNum >= 0 ? "+" : "") + shChangeNum.toFixed(2) + "%",
       },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { success: false, error: "情绪数据获取失败", detail: err?.message },
+      { success: false, error: "情绪数据获取失败", detail: msg },
       { status: 500 }
     );
   }
