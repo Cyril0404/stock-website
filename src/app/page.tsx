@@ -531,6 +531,18 @@ export default function StockWebsite() {
   const [apiLoading, setApiLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
 
+  // Morning Report State (AI早报)
+  const [morningReport, setMorningReport] = useState<any>(null)
+  const [morningReportLoading, setMorningReportLoading] = useState(false)
+
+  // Sector Data State (板块热度)
+  const [sectorData, setSectorData] = useState<any[]>([])
+  const [sectorLoading, setSectorLoading] = useState(false)
+
+  // Screener State (AI选股)
+  const [screenerResults, setScreenerResults] = useState<any[]>([])
+  const [screenerLoading, setScreenerLoading] = useState(false)
+
   // Stock List State
   const [stockPage, setStockPage] = useState(1)
   const [stockTotal, setStockTotal] = useState(0)
@@ -552,6 +564,52 @@ export default function StockWebsite() {
       console.error('Failed to fetch stocks:', error)
     }
     setStocksLoading(false)
+  }
+
+  // Fetch Morning Report (AI早报)
+  const fetchMorningReport = async () => {
+    setMorningReportLoading(true)
+    try {
+      const response = await fetch("/api/morning-report")
+      const data = await response.json()
+      if (data.success !== false) {
+        setMorningReport(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch morning report:", error)
+    }
+    setMorningReportLoading(false)
+  }
+
+  // Fetch Sector Data (板块热度)
+  const fetchSectorData = async () => {
+    setSectorLoading(true)
+    try {
+      const response = await fetch("/api/sectors")
+      const data = await response.json()
+      if (data.success) {
+        setSectorData(data.sectors || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch sector data:", error)
+    }
+    setSectorLoading(false)
+  }
+
+  // Fetch Screener Results (AI选股)
+  const runScreener = async (params: Record<string, string> = {}) => {
+    setScreenerLoading(true)
+    try {
+      const query = new URLSearchParams(params).toString()
+      const response = await fetch(`/api/screener?${query}`)
+      const data = await response.json()
+      if (data.success) {
+        setScreenerResults(data.results || [])
+      }
+    } catch (error) {
+      console.error("Failed to run screener:", error)
+    }
+    setScreenerLoading(false)
   }
 
   // Fetch API Data
@@ -631,6 +689,8 @@ export default function StockWebsite() {
     }
     fetchData()
     fetchStocks(1) // Fetch stocks on mount
+    fetchMorningReport() // Fetch AI早报
+    fetchSectorData() // Fetch 板块数据
     const interval = setInterval(fetchData, 30000) // Refresh every 30 seconds
     return () => clearInterval(interval)
   }, [])
@@ -937,7 +997,7 @@ export default function StockWebsite() {
                 <h2 className="text-lg font-semibold">今日早报</h2>
                 <p className="text-sm text-muted-foreground">
                   <Calendar className="mr-1 inline h-3 w-3" />
-                  {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })} 07:30 更新
+                  {morningReport?.date ? morningReport.date.replace("2026-", "") : new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} {morningReport?.updatedAt || "07:30"} 更新
                 </p>
               </div>
               <Button variant="outline" size="sm">
@@ -945,13 +1005,125 @@ export default function StockWebsite() {
                 订阅推送
               </Button>
             </div>
-            <div className="space-y-3">
-              {morningNews.map((news, i) => (
-                <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                  <NewsCard news={news} />
+
+            {morningReportLoading ? (
+              <div className="space-y-3">
+                {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}
+              </div>
+            ) : morningReport ? (
+              <div className="space-y-4">
+                {/* 大盘前瞻 */}
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">大盘前瞻</span>
+                    <span className={cn(
+                      "ml-auto text-sm font-bold",
+                      morningReport.marketOutlook?.sentiment === "乐观" ? "text-red-500" :
+                      morningReport.marketOutlook?.sentiment === "谨慎" ? "text-orange-400" : "text-green-400"
+                    )}>{morningReport.marketOutlook?.sentiment}</span>
+                  </div>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    今日大盘预计：<span className="font-semibold text-foreground">{morningReport.marketOutlook?.shanghaiTrend}</span>
+                  </p>
+                  <div className="space-y-1">
+                    {morningReport.marketOutlook?.keyFactors?.map((f: string, i: number) => (
+                      <p key={i} className="flex items-start gap-2 text-sm">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        {f}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                {/* 操作建议 */}
+                {morningReport.tradingSuggestions?.length > 0 && (
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-orange-400" />
+                      <span className="font-semibold">分时操作建议</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {morningReport.tradingSuggestions.map((s: any, i: number) => (
+                        <div key={i} className="rounded-lg bg-background/80 p-2 text-xs">
+                          <span className="font-semibold text-orange-400">{s.time}</span>
+                          <p className="mt-0.5 text-muted-foreground">{s.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 关注板块 */}
+                {morningReport.sectorsToWatch?.length > 0 && (
+                  <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Flame className="h-4 w-4 text-green-400" />
+                      <span className="font-semibold">今日关注板块</span>
+                    </div>
+                    <div className="space-y-2">
+                      {morningReport.sectorsToWatch.map((s: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div>
+                            <span className="font-semibold text-green-400">{s.sector}</span>
+                            <span className="ml-2 text-sm text-muted-foreground">{s.reason}</span>
+                          </div>
+                          {s.relatedStocks && (
+                            <span className="text-xs text-muted-foreground">{s.relatedStocks.join(", ")}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 风险提示 */}
+                {morningReport.riskAlerts?.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-400" />
+                      <span className="font-semibold">风险提示</span>
+                    </div>
+                    <div className="space-y-1">
+                      {morningReport.riskAlerts.map((r: string, i: number) => (
+                        <p key={i} className="flex items-start gap-2 text-sm text-red-300">
+                          <span>⚠️</span> {r}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 每日金句 */}
+                {morningReport.dailyQuote && (
+                  <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-center">
+                    <p className="text-lg font-medium italic">"{morningReport.dailyQuote.text}"</p>
+                    {morningReport.dailyQuote.author && (
+                      <p className="mt-1 text-sm text-muted-foreground">— {morningReport.dailyQuote.author}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 开户引导 */}
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-center">
+                  <p className="mb-2 text-sm text-muted-foreground">想获取更精准的AI早报和个股分析？</p>
+                  <Button className="gap-2" asChild>
+                    <a href="https://www.dgzq.com.cn" target="_blank" rel="noopener noreferrer">
+                      <Building2 className="h-4 w-4" />
+                      立即开户 · 享受AI投顾服务
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {morningNews.map((news, i) => (
+                  <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
+                    <NewsCard news={news} />
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* 持仓 Tab */}
