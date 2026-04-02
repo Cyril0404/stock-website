@@ -17,6 +17,9 @@ app.use(express.json());
 // 新浪财经实时行情接口
 const SINA_URL = 'http://hq.sinajs.cn/list';
 
+// 东方财富API（用于涨跌停，目前暂不可用）
+const EASTMONEY_LIMIT_URL = 'http://push2.eastmoney.com/api/qt/clist/get';
+
 // 指数列表
 const INDICES = [
   { code: '000001', name: '上证指数', market: '1' },
@@ -43,6 +46,11 @@ const MOCK_LIMIT_UP = [
   { code: '600212', name: '江泉实业', price: '5.67', changePercent: '+4.99', change: '0.27', volume: '8900万', amount: '8900万', reason: '业绩预增', time: '09:30:22' },
   { code: '002567', name: '唐人神', price: '8.90', changePercent: '+4.99', change: '0.42', volume: '1.5亿', amount: '1.5亿', reason: '猪肉价格', time: '09:31:05' },
   { code: '300432', name: '富临精工', price: '12.34', changePercent: '+4.98', change: '0.58', volume: '2300万', amount: '2300万', reason: '新能源', time: '09:31:33' },
+];
+
+const MOCK_LIMIT_DOWN = [
+  { code: '300338', name: '开元教育', price: '5.67', changePercent: '-10.01', change: '0.63', volume: '3200万', amount: '1.82亿', reason: '业绩预亏', time: '09:30:00' },
+  { code: '002716', name: '金贵银业', price: '3.45', changePercent: '-10.05', change: '0.39', volume: '2800万', amount: '9700万', reason: '风险警示', time: '09:30:15' },
 ];
 
 // ==================== 工具函数 ====================
@@ -153,28 +161,35 @@ async function getIndexQuotes() {
   return results;
 }
 
-// 获取涨停板数据
+// 获取涨停板数据 - 使用新浪
 async function getLimitUpStocks() {
-  const url = `${EASTMONEY_LIMIT_URL}?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f8,f9,f12,f14,f15,f16,f17,f18`;
+  const url = `http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeDataSimple?page=1&num=500&sort=changepercent&asc=0&node=hs_a`;
   try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const data = response.data.data;
-    if (!data || !data.diff) return MOCK_LIMIT_UP;
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'Referer': 'https://finance.sina.com.cn/',
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+    const data = response.data;
+    if (!Array.isArray(data)) return MOCK_LIMIT_UP;
 
-    const stocks = data.diff.filter(item => {
-      const changePercent = item.f3;
-      return changePercent >= 9.9;
-    }).map(item => ({
-      code: item.f12,
-      name: item.f14,
-      price: formatNumber(item.f2),
-      changePercent: formatNumber(item.f3, 2),
-      change: formatNumber(item.f3 > 0 ? item.f3 : -item.f3, 2),
-      volume: formatVolume(item.f47),
-      amount: formatVolume(item.f48),
-      reason: item.f8 || '--',
-      time: item.f18 || '--',
-    }));
+    // 涨停 = 涨幅 >= 9.9%
+    const stocks = data
+      .filter(item => parseFloat(item.changepercent) >= 9.9)
+      .map(item => ({
+        code: item.symbol.replace(/^(sh|sz|bj)/, ''),
+        name: item.name,
+        price: item.trade,
+        changePercent: parseFloat(item.changepercent).toFixed(2),
+        change: '+' + item.pricechange,
+        volume: formatVolume(item.volume),
+        amount: formatVolume(item.amount),
+        reason: '--',
+        time: item.ticktime || '--',
+      }));
+
     return stocks.length > 0 ? stocks : MOCK_LIMIT_UP;
   } catch (error) {
     console.error('获取涨停板失败:', error.message);
@@ -182,30 +197,38 @@ async function getLimitUpStocks() {
   }
 }
 
-// 获取跌停板数据
+// 获取跌停板数据 - 使用新浪
 async function getLimitDownStocks() {
-  const url = `${EASTMONEY_LIMIT_URL}?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f8,f9,f12,f14,f15,f16,f17,f18`;
+  const url = `http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeDataSimple?page=1&num=500&sort=changepercent&asc=1&node=hs_a`;
   try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const data = response.data.data;
-    if (!data || !data.diff) return [];
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'Referer': 'https://finance.sina.com.cn/',
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+    const data = response.data;
+    if (!Array.isArray(data)) return MOCK_LIMIT_DOWN;
 
-    return data.diff.filter(item => {
-      const changePercent = item.f3;
-      return changePercent <= -9.9;
-    }).map(item => ({
-      code: item.f12,
-      name: item.f14,
-      price: formatNumber(item.f2),
-      changePercent: formatNumber(item.f3, 2),
-      volume: formatVolume(item.f47),
-      amount: formatVolume(item.f48),
-      reason: item.f8 || '--',
-      time: item.f18 || '--',
-    }));
+    // 跌停 = 跌幅 >= 9.9%
+    const stocks = data
+      .filter(item => parseFloat(item.changepercent) <= -9.9)
+      .map(item => ({
+        code: item.symbol.replace(/^(sh|sz|bj)/, ''),
+        name: item.name,
+        price: item.trade,
+        changePercent: parseFloat(item.changepercent).toFixed(2),
+        volume: formatVolume(item.volume),
+        amount: formatVolume(item.amount),
+        reason: '--',
+        time: item.ticktime || '--',
+      }));
+
+    return stocks.length > 0 ? stocks : MOCK_LIMIT_DOWN;
   } catch (error) {
     console.error('获取跌停板失败:', error.message);
-    return [];
+    return MOCK_LIMIT_DOWN;
   }
 }
 
@@ -239,31 +262,41 @@ async function getSectors() {
   }
 }
 
-// 获取全市场股票列表（分页）
+// 获取全市场股票列表（分页）- 使用新浪财经
 async function getStockList(page = 1, pageSize = 50) {
-  const url = `${EASTMONEY_LIMIT_URL}?pn=${page}&pz=${pageSize}&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f8,f9,f12,f14,f15,f16,f17,f18,f62`;
+  // 新浪股票列表API
+  const url = `http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeDataSimple?page=${page}&num=${pageSize}&sort=changepercent&asc=0&node=hs_a`;
   try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const data = response.data.data;
-    if (!data || !data.diff) return { stocks: [], total: 0 };
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'Referer': 'https://finance.sina.com.cn/',
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+    const data = response.data;
+    if (!Array.isArray(data)) return { stocks: [], total: 0 };
 
-    const stocks = data.diff.map(item => ({
-      code: item.f12,
-      name: item.f14,
-      price: formatNumber(item.f2),
-      changePercent: formatNumber(item.f3, 2),
-      change: formatNumber(item.f3 > 0 ? item.f3 : -item.f3, 2),
-      volume: formatVolume(item.f47),
-      amount: formatVolume(item.f48),
-      high: formatNumber(item.f15),
-      low: formatNumber(item.f16),
-      open: formatNumber(item.f17),
-      yesterdayClose: formatNumber(item.f18),
+    const stocks = data.map(item => ({
+      code: item.symbol.replace(/^(sh|sz)/, ''),
+      name: item.name,
+      price: item.trade,
+      change: parseFloat(item.pricechange) > 0 ? '+' + item.pricechange : item.pricechange.toString(),
+      changePercent: parseFloat(item.changepercent).toFixed(2),
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      volume: formatVolume(item.volume),
+      amount: formatVolume(item.amount),
+      yesterdayClose: item.settlement,
     }));
+
+    // 估算总数（A股约5000只）
+    const total = 5000;
 
     return {
       stocks,
-      total: data.total || stocks.length,
+      total,
       page,
       pageSize
     };
