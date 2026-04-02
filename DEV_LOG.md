@@ -114,7 +114,7 @@ Vercel 自动部署 → openstock.top 更新
 | 2026-04-02 | 页面显示4个券商（缓存问题） | npm run build重建，已推送GitHub |
 | 2026-04-02 | efinance get_latest_quote('000001') 返回平安银行而非上证指数 | 改用新浪 hq.sinajs.cn API |
 | 2026-04-02 | API routes 使用绝对路径在Vercel不工作 | 改用 process.cwd() 相对路径 |
-| 2026-04-02 | GitHub token 过期 | 更新为新token（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） |
+| 2026-04-02 | GitHub token 过期 | 更新为新token（详见TOOLS.md） |
 | 2026-04-02 | fetch_data.py 放错仓库 | 复制到 stock-website 并推送 |
 
 ---
