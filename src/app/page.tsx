@@ -75,10 +75,7 @@ const myFavorites = [
 
 // Mock Data - 券商
 const brokers = [
-  { name: "华泰证券", feature: "头部券商", commission: "万1.5", wealth: "有", vip: "专属投顾", highlight: "ETF免五" },
-  { name: "银河证券", feature: "国有券商", commission: "万1.3", wealth: "有", vip: "投顾服务", highlight: "Level2" },
-  { name: "国金证券", feature: "互联网券商", commission: "万1.0", wealth: "有", vip: "量化交易", highlight: "同花顺" },
-  { name: "华宝证券", feature: "特色券商", commission: "万0.9", wealth: "有", vip: "网格交易", highlight: "智能条件单" },
+  { name: "东莞证券", feature: "佣金万0.86", commission: "万0.86", wealth: "有", vip: "客户经理", highlight: "热门" },
 ]
 
 // Mock Data - 炸板股
@@ -406,14 +403,17 @@ function CommissionCalculator({ broker, open, onClose }: { broker: typeof broker
   const [amount, setAmount] = useState("100000")
   const [frequency, setFrequency] = useState("10")
 
-  const commission = broker ? (parseFloat(amount) * parseFloat(broker.commission.replace("万", "")) / 10000 * parseInt(frequency)).toFixed(2) : "0.00"
+  // 计算单笔佣金（取费率计算值和最低5元的大值）
+  const perTradeCommission = broker ? Math.max(parseFloat(amount) * parseFloat(broker.commission.replace("万", "")) / 10000, 5) : 5
+  const monthlyCommission = (perTradeCommission * parseInt(frequency)).toFixed(2)
+  const yearlyCommission = (perTradeCommission * parseInt(frequency) * 12).toFixed(2)
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>佣金计算器 - {broker?.name}</DialogTitle>
-          <DialogDescription>计算您的年度交易佣金成本</DialogDescription>
+          <DialogDescription>计算您的年度交易佣金成本（单笔最低5元）</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
@@ -434,10 +434,19 @@ function CommissionCalculator({ broker, open, onClose }: { broker: typeof broker
               className="mt-1 font-mono"
             />
           </div>
-          <div className="rounded-xl bg-primary/10 p-4 text-center">
-            <p className="text-sm text-muted-foreground">年度佣金成本</p>
-            <p className="font-mono text-3xl font-bold text-primary">¥{commission}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl bg-primary/10 p-4 text-center">
+              <p className="text-sm text-muted-foreground">月度佣金</p>
+              <p className="font-mono text-2xl font-bold text-primary">¥{monthlyCommission}</p>
+            </div>
+            <div className="rounded-xl bg-primary/10 p-4 text-center">
+              <p className="text-sm text-muted-foreground">年度佣金</p>
+              <p className="font-mono text-2xl font-bold text-primary">¥{yearlyCommission}</p>
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground text-center">
+            注：单笔佣金 = max(实际费率计算值, 5元最低消费)
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>关闭</Button>
@@ -519,10 +528,45 @@ export default function StockWebsite() {
   const [apiLimitUp, setApiLimitUp] = useState<typeof limitUpStocks>([])
   const [apiLimitDown, setApiLimitDown] = useState<typeof limitDownStocks>([])
   const [apiOverview, setApiOverview] = useState<any>(null)
+  const [apiLoading, setApiLoading] = useState(true)
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  // Stock List State
+  const [stockPage, setStockPage] = useState(1)
+  const [stockTotal, setStockTotal] = useState(0)
+  const [apiStocks, setApiStocks] = useState<Array<{code: string, name: string, price: string, change: string, changePercent: string, open: string, high: string, low: string, volume: string, amount: string, yesterdayClose: string}>>([])
+  const [stocksLoading, setStocksLoading] = useState(false)
+
+  // Fetch Stocks
+  const fetchStocks = async (page: number) => {
+    setStocksLoading(true)
+    try {
+      const response = await fetch(`/api/stocks?page=${page}&pageSize=50`)
+      const data = await response.json()
+      if (data.success) {
+        setApiStocks(data.stocks)
+        setStockTotal(data.total)
+        setStockPage(page)
+      }
+    } catch (error) {
+      console.error('Failed to fetch stocks:', error)
+    }
+    setStocksLoading(false)
+  }
 
   // Fetch API Data
+  const formatVolume = (v: number | string | undefined) => {
+    if (!v) return '0'
+    const n = typeof v === 'string' ? parseFloat(v) : v
+    if (n >= 1e8) return (n / 1e8).toFixed(1) + '亿'
+    if (n >= 1e4) return (n / 1e4).toFixed(1) + '万'
+    return String(n)
+  }
+
   useEffect(() => {
     const fetchData = async () => {
+      setApiLoading(true)
+      setApiError(null)
       try {
         const [overviewRes, indicesRes, limitUpRes, limitDownRes] = await Promise.all([
           fetch('/api/overview'),
@@ -536,14 +580,57 @@ export default function StockWebsite() {
         const limitDownData = await limitDownRes.json()
 
         if (overviewData.success) setApiOverview(overviewData.data)
-        if (indicesData.success) setApiIndices(indicesData.data)
-        if (limitUpData.success) setApiLimitUp(limitUpData.data)
-        if (limitDownData.success) setApiLimitDown(limitDownData.data)
+        if (indicesData.success) {
+          const transformedIndices = (indicesData.data || []).map((s: any) => ({
+            code: s.code || '',
+            name: s.name || '',
+            price: String(s.price || ''),
+            change: s.pct || s.change || '',
+            changePercent: s.pct || s.change || '',
+            volume: formatVolume(s.volume),
+            amount: formatVolume(s.amount),
+            amplitude: s.amplitude || '',
+            high: String(s.high || ''),
+            low: String(s.low || ''),
+            open: String(s.open || ''),
+          }))
+          setApiIndices(transformedIndices)
+        }
+
+        // Transform limit_up/down from raw website_data.json format to page-expected format
+        if (limitUpData.success) {
+          const transformed = (limitUpData.data || []).map((s: any) => ({
+            code: s.code || '',
+            name: s.name || '',
+            price: String(s.trade || s.price || ''),
+            change: (s.changepercent >= 0 ? '+' : '') + String(s.changepercent || '0') + '%',
+            volume: formatVolume(s.volume),
+            reason: s.reason || s.ticktime || '',
+            time: s.ticktime || '',
+          }))
+          setApiLimitUp(transformed)
+        }
+        if (limitDownData.success) {
+          const transformed = (limitDownData.data || []).map((s: any) => ({
+            code: s.code || '',
+            name: s.name || '',
+            price: String(s.trade || s.price || ''),
+            change: (s.changepercent >= 0 ? '+' : '') + String(s.changepercent || '0') + '%',
+            volume: formatVolume(s.volume),
+            reason: s.reason || s.ticktime || '',
+            time: s.ticktime || '',
+          }))
+          setApiLimitDown(transformed)
+        }
       } catch (error) {
         console.error('Failed to fetch API data:', error)
+        setApiError('数据加载失败，请刷新重试')
+      } finally {
+        setApiLoading(false)
       }
     }
     fetchData()
+    fetchStocks(1) // Fetch stocks on mount
     const interval = setInterval(fetchData, 30000) // Refresh every 30 seconds
     return () => clearInterval(interval)
   }, [])
@@ -562,9 +649,9 @@ export default function StockWebsite() {
     setUser(null)
   }
 
-  const filteredStocks = allStocks.filter(stock => {
+  const filteredStocks = apiStocks.filter((stock: typeof apiStocks[0]) => {
     const matchesSearch = stock.name.includes(searchQuery) || stock.code.includes(searchQuery)
-    const matchesType = stockType === "all" || stock.type === stockType
+    const matchesType = stockType === "all" || (stock as any).type === stockType
     return matchesSearch && matchesType
   })
 
@@ -767,12 +854,43 @@ export default function StockWebsite() {
                   <SelectItem value="电力">电力</SelectItem>
                 </SelectContent>
               </Select>
+              <span className="text-sm text-muted-foreground">
+                共 {stockTotal.toLocaleString()} 只股票
+              </span>
             </div>
-            <div className="space-y-2">
-              {filteredStocks.map((stock) => (
-                <StockRow key={stock.code} stock={stock} showType />
-              ))}
-            </div>
+            {stocksLoading ? (
+              <div className="text-center py-8 text-muted-foreground">加载中...</div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {apiStocks.map((stock) => (
+                    <StockRow key={stock.code} stock={stock} showType />
+                  ))}
+                </div>
+                {/* Pagination */}
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchStocks(stockPage - 1)}
+                    disabled={stockPage <= 1}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    第 {stockPage} / {Math.ceil(stockTotal / 50)} 页
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchStocks(stockPage + 1)}
+                    disabled={stockPage >= Math.ceil(stockTotal / 50)}
+                  >
+                    下一页
+                  </Button>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* 涨跌停 Tab */}

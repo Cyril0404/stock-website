@@ -1,14 +1,22 @@
 import { NextResponse } from 'next/server';
-import { API_BASE_URL } from '../config';
+import fs from 'fs';
+import path from 'path';
+
+export const dynamic = 'force-dynamic';
+
+// Use relative path for Vercel compatibility
+const DATA_FILE = path.join(process.cwd(), 'data', 'website_data.json');
 
 export async function GET() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/limit_down`, {
-      next: { revalidate: 10 }
-    });
-    const data = await response.json();
-    return NextResponse.json(data);
+    if (!fs.existsSync(DATA_FILE)) {
+      return NextResponse.json({ success: true, data: [], stale: true });
+    }
+    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const data = JSON.parse(raw);
+    return NextResponse.json({ success: true, data: data.limit_down || [] });
   } catch (error) {
-    return NextResponse.json({ success: false, error: 'API request failed' }, { status: 500 });
+    console.error('Error reading limit_down data:', error);
+    return NextResponse.json({ success: false, error: 'Failed to read data' }, { status: 500 });
   }
 }
