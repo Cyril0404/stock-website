@@ -1,0 +1,36 @@
+{
+  "dates": [
+    "2026-04-02",
+    "2026-04-01",
+    "2026-03-31",
+    "2026-03-28",
+    "2026-03-27",
+    "2026-03-26"
+  ],
+  "market_sentiment": {
+    "2026-04-02": {
+      "limitUpCount": 59,
+      "limitDownCount": 13,
+      "breadth": "+0.63%",
+      "emotionScore": 65,
+      "emotionLabel": "活跃",
+      "twoPlusBoardCount": 8
+    },
+    "2026-04-01": {
+      "limitUpCount": 47,
+      "limitDownCount": 21,
+      "breadth": "-0.24%",
+      "emotionScore": 42,
+      "emotionLabel": "谨慎",
+      "twoPlusBoardCount": 5
+    },
+    "2026-03-31": {
+      "limitUpCount": 62,
+      "limitDownCount": 8,
+      "breadth": "+1.01%",
+      "emotionScore": 78,
+      "emotionLabel": "狂热",
+      "twoPlusBoardCount": 12
+    }
+  }
+}
