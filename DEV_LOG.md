@@ -334,3 +334,35 @@ npx vercel deploy --prod --yes \
   --token=vcp_1plO1FjvcnvbYJcYPazSFSOOA0T5ZmlEhvL0yzRXheBIScRTZB2NgKVu \
   --scope=team_3S0syFN0683wFsywCBWHbt9Z
 ```
+
+---
+
+## 十四、sectors API 修复（2026-04-02 22:53）
+
+### 问题
+- Vercel serverless 环境 fetch GitHub raw 超时 → 500错误
+- 今日 deploy 了8次才稳定 → 教训：没做 vibe-coding 自测
+
+### 修复方案
+- 移除外部 fetch，改为 `fs.readFileSync` 读取本地 `data/website_data.json`
+- Build 验证通过后才 deploy，1次成功
+
+### 修复后状态
+| API | 状态 | 备注 |
+|-----|------|------|
+| sectors | ✅ 200 | 数据源缺板块字段（全归"其它"） |
+| morning-report | ✅ 200 | |
+| screener | ✅ 200 | |
+| limit-formation | ✅ 200 | |
+| market-sentiment | ✅ 200 | |
+| historical | ✅ 200 | |
+
+### vibe-coding 规范（2026-04-02 起执行）
+1. 规划先行 — 先确认问题根源再动手
+2. 小步快跑 — 一次只改一个文件
+3. 自测验证 — `npm run build` 过了才 deploy
+4. 有底再推 — 没把握的代码不推送
+
+---
+
+*本文档由 丞相 自动更新 2026-04-02 22:53*
