@@ -197,10 +197,10 @@ const sentimentData = {
 }
 
 // Stock Row Component
-function StockRow({ stock, showType = false, showVolume = true }: { stock: { code: string, name: string, price: string, change: string, volume: string, type?: string, reason?: string, time?: string }, showType?: boolean, showVolume?: boolean }) {
+function StockRow({ stock, showType = false, showVolume = true, showTimeReason = false }: { stock: { code: string, name: string, price: string, change: string, volume: string, type?: string, reason?: string, time?: string }, showType?: boolean, showVolume?: boolean, showTimeReason?: boolean }) {
   const isUp = stock.change.startsWith("+")
   return (
-    <div className="flex items-center gap-4 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer">
       <div className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
         isUp ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"
@@ -213,6 +213,12 @@ function StockRow({ stock, showType = false, showVolume = true }: { stock: { cod
           <span className="font-mono text-sm text-muted-foreground">{stock.code}</span>
         </div>
         {showType && <p className="text-sm text-muted-foreground">{stock.type}</p>}
+        {showTimeReason && stock.reason && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {stock.time && <span className="mr-2">{stock.time}</span>}
+            <span className="inline-flex items-center rounded bg-orange-500/10 px-1.5 py-0.5 text-orange-500">{stock.reason}</span>
+          </p>
+        )}
       </div>
       <div className="text-right">
         <p className="font-mono font-semibold">{stock.price}</p>
@@ -224,8 +230,45 @@ function StockRow({ stock, showType = false, showVolume = true }: { stock: { cod
         </p>
       </div>
       {showVolume && (
-        <div className="hidden text-right md:block">
+        <div className="hidden text-right md:block min-w-[60px]">
           <p className="font-mono text-sm text-muted-foreground">{stock.volume}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Limit Stock Row Component (涨停股票专用，显示更多字段)
+function LimitStockRow({ stock, isUp = true }: { stock: { code: string, name: string, price: string, change: string, volume: string, reason?: string, time?: string, sealFunds?: string }, isUp?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-3 transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer">
+      <div className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+        isUp ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"
+      )}>
+        {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">{stock.name}</span>
+          <span className="font-mono text-xs text-muted-foreground">{stock.code}</span>
+        </div>
+        {stock.reason && (
+          <p className="text-xs text-orange-500 mt-0.5 truncate">{stock.reason}</p>
+        )}
+      </div>
+      <div className="text-right shrink-0">
+        <p className="font-mono text-sm font-semibold">{stock.price}</p>
+        <p className={cn(
+          "font-mono text-xs font-medium",
+          isUp ? "text-red-500" : "text-green-500"
+        )}>
+          {stock.change}
+        </p>
+      </div>
+      {stock.time && (
+        <div className="text-right shrink-0 hidden sm:block">
+          <p className="font-mono text-xs text-muted-foreground">{stock.time}</p>
         </div>
       )}
     </div>
@@ -551,6 +594,9 @@ export default function StockWebsite() {
   const [marketSentiment, setMarketSentiment] = useState<any>(null)
   const [sentimentLoading, setSentimentLoading] = useState(false)
 
+  // Market Turnover State (成交额)
+  const [marketTurnover, setMarketTurnover] = useState<string>('—')
+
   // Stock List State
   const [stockPage, setStockPage] = useState(1)
   const [stockTotal, setStockTotal] = useState(0)
@@ -713,6 +759,13 @@ export default function StockWebsite() {
             time: s.ticktime || '',
           }))
           setApiLimitDown(transformed)
+
+          // 计算市场成交额（从涨停+跌停股票的amount总和估算）
+          const limitUpAmount = (limitUpData.data || []).reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
+          const limitDownAmount = (limitDownData.data || []).reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
+          // 估算全市场成交额（涨停+跌停约占市场20-30%，这里用5倍估算）
+          const estimatedMarketAmount = (limitUpAmount + limitDownAmount) * 5
+          setMarketTurnover(formatVolume(estimatedMarketAmount))
         }
       } catch (error) {
         console.error('Failed to fetch API data:', error)
@@ -866,10 +919,9 @@ export default function StockWebsite() {
               <Users className="h-4 w-4" />
               成交额
             </div>
-            <p className="mt-1 font-mono text-2xl font-bold">{apiIndices[0]?.volume || '1.23万亿'}</p>
-            <p className="flex items-center gap-1 text-sm font-medium text-green-500">
-              <ArrowUpRight className="h-4 w-4" />
-              +15.6%
+            <p className="mt-1 font-mono text-2xl font-bold">{marketTurnover}</p>
+            <p className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+              <span className="text-xs">估</span>
             </p>
           </div>
           <div className="rounded-xl border bg-card p-4">
@@ -1085,9 +1137,9 @@ export default function StockWebsite() {
                     {(apiLimitUp.length > 0 ? apiLimitUp : limitUpStocks).length}只
                   </span>
                 </div>
-                <div className="space-y-1">
+                <div className="grid gap-2 md:grid-cols-2">
                   {(apiLimitUp.length > 0 ? apiLimitUp : limitUpStocks).map((stock) => (
-                    <StockRow key={stock.code} stock={stock} />
+                    <LimitStockRow key={stock.code} stock={stock} isUp={true} />
                   ))}
                 </div>
               </div>
@@ -1101,9 +1153,9 @@ export default function StockWebsite() {
                     {(apiLimitDown.length > 0 ? apiLimitDown : limitDownStocks).length}只
                   </span>
                 </div>
-                <div className="space-y-1">
+                <div className="grid gap-2 md:grid-cols-2">
                   {(apiLimitDown.length > 0 ? apiLimitDown : limitDownStocks).map((stock) => (
-                    <StockRow key={stock.code} stock={stock} />
+                    <LimitStockRow key={stock.code} stock={stock} isUp={false} />
                   ))}
                 </div>
               </div>
@@ -1319,62 +1371,98 @@ export default function StockWebsite() {
               </p>
             </div>
 
-            {/* 情绪周期 */}
-            <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Flame className="h-6 w-6 text-orange-500" />
-                  <div>
-                    <p className="font-semibold">市场情绪</p>
-                    <p className="text-sm text-muted-foreground">{sentimentData.description}</p>
+            {/* 市场情绪指标 (使用API数据) */}
+            {marketSentiment && (
+              <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Flame className="h-6 w-6 text-orange-500" />
+                    <div>
+                      <p className="font-semibold">市场情绪</p>
+                      <p className="text-sm text-muted-foreground">
+                        涨停 <span className="font-bold text-red-500">{marketSentiment.limitUpCount}</span> / 跌停 <span className="font-bold text-green-500">{marketSentiment.limitDownCount}</span>
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className={cn("font-mono text-2xl font-bold",
-                    sentimentData.score > 70 ? "text-red-500" : sentimentData.score > 40 ? "text-orange-500" : "text-green-500"
-                  )}>{sentimentData.today}</p>
-                  <p className="text-sm text-muted-foreground">
-                    热度 {sentimentData.score} {sentimentData.trend === "上升" ? <ArrowUpRight className="inline h-3 w-3 text-red-500" /> : <ArrowDownRight className="inline h-3 w-3 text-green-500" />}
-                  </p>
+                  <div className="text-right">
+                    <p className={cn("font-mono text-2xl font-bold",
+                      marketSentiment.score >= 75 ? "text-red-500" :
+                      marketSentiment.score >= 55 ? "text-orange-500" :
+                      marketSentiment.score >= 40 ? "text-yellow-500" : "text-blue-500"
+                    )}>{marketSentiment.label}</p>
+                    <p className="text-sm text-muted-foreground">
+                      得分 {marketSentiment.score} / 100
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* 情绪加载状态 */}
+            {sentimentLoading && (
+              <div className="mb-6 h-20 rounded-xl border bg-muted animate-pulse" />
+            )}
 
             {/* 雁阵图 */}
+            {formationLoading ? (
+              <div className="space-y-4">
+                {[1,2,3].map(i => (
+                  <div key={i} className="rounded-xl border bg-card p-4">
+                    <div className="h-8 bg-muted animate-pulse rounded mb-4" />
+                    <div className="flex gap-2">
+                      <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="space-y-6">
-              {limitUpFormationData.map((stage) => (
-                <div key={stage.stage} className="rounded-xl border bg-card p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Target className="h-5 w-5 text-primary" />
-                      <h3 className="font-semibold">{stage.stage}</h3>
-                      <span className={cn(
-                        "rounded-full px-2 py-0.5 text-xs font-medium",
-                        parseInt(stage.successRate) >= 50 ? "bg-red-500/10 text-red-500" :
-                        parseInt(stage.successRate) >= 20 ? "bg-orange-500/10 text-orange-500" :
-                        "bg-green-500/10 text-green-500"
-                      )}>
-                        {stage.successRate}
+              {(limitFormation.length > 0 ? limitFormation : limitUpFormationData).map((stage: any) => {
+                const successRate = stage.total > 0 ? Math.round((stage.success / stage.total) * 100) : 0
+                return (
+                  <div key={stage.stage} className="rounded-xl border bg-card p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Target className="h-5 w-5 text-primary" />
+                        <h3 className="font-semibold">{stage.stage}</h3>
+                        <span className={cn(
+                          "rounded-full px-2 py-0.5 text-xs font-medium",
+                          successRate >= 50 ? "bg-red-500/10 text-red-500" :
+                          successRate >= 20 ? "bg-orange-500/10 text-orange-500" :
+                          "bg-green-500/10 text-green-500"
+                        )}>
+                          {successRate}%
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {stage.success || 0}/{stage.total || 0}
                       </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {stage.success}/{stage.total}
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {(stage.stocks || []).map((stock: any) => {
+                        // Determine status: 连板=成, 首板=成, 败/炸 for failure
+                        const isSuccess = stock.status === "连板" || stock.status === "首板"
+                        const statusColor = isSuccess ? "text-red-500" : "text-orange-500"
+                        const statusBg = isSuccess ? "bg-red-500/10" : "bg-orange-500/10"
+                        const statusLabel = stock.status === "连板" ? "成" : stock.status === "首板" ? "成" : "炸"
+                        return (
+                          <div key={stock.code} className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 hover:border-primary/30">
+                            <div className={cn("font-mono text-sm font-semibold", statusColor)}>{stock.name}</div>
+                            <div className={cn("rounded px-1.5 py-0.5 text-xs font-medium", statusBg)}>
+                              {statusLabel}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate max-w-[100px]">{stock.reason || stock.ticktime || ''}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {stage.stocks.map((stock) => (
-                      <div key={stock.code} className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 hover:border-primary/30">
-                        <div className={cn("font-mono text-sm font-semibold", stock.statusColor)}>{stock.name}</div>
-                        <div className={cn("rounded px-1.5 py-0.5 text-xs font-medium", stock.statusColor === "text-red-500" ? "bg-red-500/10" : stock.statusColor === "text-orange-500" ? "bg-orange-500/10" : "bg-green-500/10")}>
-                          {stock.status}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{stock.reason}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+            )}
           </TabsContent>
 
           {/* 概念板块 Tab */}
