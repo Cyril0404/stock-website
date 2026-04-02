@@ -3,7 +3,7 @@ import { fetchData } from "@/lib/fetchData";
 
 export const dynamic = "force-dynamic";
 
-// 市场情绪指标
+// 市场情绪指标 - 基于当日数据计算
 export async function GET() {
   try {
     const [todayData, histData] = await Promise.all([
@@ -15,49 +15,57 @@ export async function GET() {
     const limitDownCount = todayData?.limit_down?.length || 0;
     const indices = todayData?.indices || [];
 
-    // 找到上证指数
-    const shIndex = indices.find((i: any) => i.code === "000001" || i.name?.includes("上证"));
+    const shIndex = indices.find((i: any) =>
+      (i.code === "000001" || i.name?.includes("上证"))
+    );
     const shChange = shIndex?.pct || shIndex?.change || "0";
+    const shChangeNum = parseFloat(String(shChange).replace("%", "").replace("+", ""));
 
     // 计算情绪得分 (0-100)
-    // 涨停多+跌停少+大盘涨 = 高情绪
     const upRatio = limitUpCount / Math.max(limitDownCount, 1);
-    const emotionScore = Math.min(100, Math.round(
+    const score = Math.min(100, Math.round(
       (limitUpCount * 0.5) +
       (upRatio * 10) +
-      (parseFloat(String(shChange).replace("%", "").replace("+", "")) > 0 ? 20 : 0)
+      (shChangeNum > 0 ? 20 : 0)
     ));
 
-    let emotionLabel = "观望";
-    if (emotionScore >= 75) emotionLabel = "狂热";
-    else if (emotionScore >= 55) emotionLabel = "活跃";
-    else if (emotionScore >= 40) emotionLabel = "谨慎";
-    else if (emotionScore < 25) emotionLabel = "冰点";
+    let label = "观望";
+    if (score >= 75) label = "狂热";
+    else if (score >= 55) label = "活跃";
+    else if (score >= 40) label = "谨慎";
+    else if (score < 25) label = "冰点";
 
-    // 近5日情绪趋势
-    const sentimentHistory = Object.entries(histData?.market_sentiment || {})
-      .slice(0, 5)
-      .map(([date, data]: [string, any]) => ({
-        date,
-        score: data.emotionScore,
-        label: data.emotionLabel,
-        twoPlusBoard: data.twoPlusBoardCount,
-      }))
-      .reverse();
+    // 近5日历史趋势
+    const sentimentObj = histData?.market_sentiment || {};
+    const history = Object.keys(sentimentObj)
+      .sort()
+      .slice(-5)
+      .map((date: string) => {
+        const s = sentimentObj[date];
+        return {
+          date,
+          score: s?.emotionScore ?? 50,
+          label: s?.emotionLabel ?? "未知",
+          twoPlusBoard: s?.twoPlusBoardCount ?? 0,
+        };
+      });
 
     return NextResponse.json({
       success: true,
       sentiment: {
-        score: emotionScore,
-        label: emotionLabel,
+        score,
+        label,
         limitUpCount,
         limitDownCount,
-        shChange,
+        shChange: (shChangeNum >= 0 ? "+" : "") + shChangeNum.toFixed(2) + "%",
         upRatio: upRatio.toFixed(1),
       },
-      history: sentimentHistory,
+      history,
     });
   } catch (err) {
-    return NextResponse.json({ success: false, error: "情绪数据获取失败" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "情绪数据获取失败" },
+      { status: 500 }
+    );
   }
 }
