@@ -222,3 +222,54 @@ API Routes (/api/indices, /api/overview, etc.)
 ---
 
 *本文档由 丞相 自动更新 2026-04-02 15:10*
+
+---
+
+## 十一、codecrafters 技术落地（2026-04-02）
+
+### 来源
+GitHub 80k+ ⭐ 仓库 [codecrafters-io/build-your-own-x](https://github.com/codecrafters-io/build-your-own-x)，「从零造技术」教程合集
+
+### 博士研究发现
+31个技术方向，对 stock-website 和 OpenClawTrader 各有3个⭐⭐⭐优先级方向
+
+### stock-website 落地成果
+
+**文件：`OPTIMIZATION.md`（已写入项目根目录）**
+
+| 优化点 | 优先级 | 说明 |
+|--------|--------|------|
+| path解析修复 | 🔴 | `process.cwd()` → `import.meta.url` + `fileURLToPath` |
+| HTTP缓存头 | 🔴 | `Cache-Control: s-maxage=60, stale-while-revalidate=120` |
+| 内存缓存 | 🟡 | 30秒模块级缓存，不重复读文件 |
+
+### OpenClawTrader 落地成果
+
+**文件：`~/openclaw/OpenClawTrader/NETWORK_IMPROVEMENT.md`**
+
+| 改进点 | 优先级 | 说明 |
+|--------|--------|------|
+| 指数退避重连 | 🔴 | 断线后 1→2→4→8...秒重试，jitter避免拥塞 |
+| ping/pong心跳 | 🔴 | 每25秒发ping，超时触发重连 |
+| URLSession配置 | 🟡 | `waitsForConnectivity=true`，TCP保活 |
+| 连接锁 | 🟡 | NSLock + ConnectionState状态机 |
+| pending消息恢复 | 🟡 | 断线记录未确认消息ID，重连重发 |
+
+---
+
+## 十二、Vercel 部署状态（2026-04-02）
+
+### 当前状态
+- **GitHub仓库**：`Cyril0404/stock-website`，最新 commit `8b568c4`（只有东莞证券）
+- **部署账号**：team_3S0syFN0683wFsywCBWHbt9Z（新账号 zifans-projects-12cbea83）
+- **域名**：`openstock.top` 原绑定旧项目 `stock-website-deploy`，已迁移到正确项目
+- **有效Token**：`vcp_4zS9Va4DpSXi1rjwrUk7uYSGb3T5MFQzZm76Se5T9xs6IWfUZN2Potrb`（TOOLS.md已记录）
+
+### 域名迁移记录
+1. 删除了旧项目 `stock-website-deploy`（holding openstock.top）
+2. `openstock.top` 已解除绑定，可重新配置到正确项目
+3. 新项目 `stock-website`（prj_ssbVTcr5iJQqaeCK8jndfxFSmsVf）已接管 GitHub 仓库
+
+---
+
+*本文档由 丞相 自动更新 2026-04-02 17:25*
