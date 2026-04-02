@@ -3,13 +3,10 @@ import { fetchData } from "@/lib/fetchData";
 
 export const dynamic = "force-dynamic";
 
-// 市场情绪指标 - 基于当日数据计算
+// 市场情绪指标 - 基于当日数据计算，不依赖外部历史文件
 export async function GET() {
   try {
-    const [todayData, histData] = await Promise.all([
-      fetchData("website_data.json"),
-      fetchData("historical_limit.json"),
-    ]);
+    const todayData = await fetchData("website_data.json");
 
     const limitUpCount = todayData?.limit_up?.length || 0;
     const limitDownCount = todayData?.limit_down?.length || 0;
@@ -35,20 +32,8 @@ export async function GET() {
     else if (score >= 40) label = "谨慎";
     else if (score < 25) label = "冰点";
 
-    // 近5日历史趋势
-    const sentimentObj = histData?.market_sentiment || {};
-    const history = Object.keys(sentimentObj)
-      .sort()
-      .slice(-5)
-      .map((date: string) => {
-        const s = sentimentObj[date];
-        return {
-          date,
-          score: s?.emotionScore ?? 50,
-          label: s?.emotionLabel ?? "未知",
-          twoPlusBoard: s?.twoPlusBoardCount ?? 0,
-        };
-      });
+    // 涨跌比
+    const upDownRatio = limitUpCount + "/" + limitDownCount;
 
     return NextResponse.json({
       success: true,
@@ -57,10 +42,9 @@ export async function GET() {
         label,
         limitUpCount,
         limitDownCount,
+        upDownRatio,
         shChange: (shChangeNum >= 0 ? "+" : "") + shChangeNum.toFixed(2) + "%",
-        upRatio: upRatio.toFixed(1),
       },
-      history,
     });
   } catch (err) {
     return NextResponse.json(
