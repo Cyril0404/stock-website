@@ -117,7 +117,7 @@ Vercel 自动部署 → openstock.top 更新
 | 2026-04-02 | GitHub token 过期 | 更新为新token（详见TOOLS.md） |
 | 2026-04-02 | fetch_data.py 放错仓库 | 复制到 stock-website 并推送 |
 | 2026-04-02 | **API全500错误** — `process.cwd()` 在Vercel serverless返回`/var/task`非项目目录 | 重构数据层：API从GitHub raw URL直接fetch（`src/lib/fetchData.ts`），不依赖serverless文件系统 |
-| 2026-04-02 | **域名绑错项目** — `openstock.top`绑在旧项目`stock-website-deploy`（prj_mmmz3as），新代码部署到`stock-website`（prj_ssbVTcr） | 通过Vercel API删除域名绑定，重新添加到正确项目，域名恢复正常 |
+| 2026-04-02 | **域名绑错项目** — `openstock.top`绑在旧项目`stock-website-deploy`（prj_MMMZ3AS_已遮蔽），新代码部署到`stock-website`（prj_ssbVTcr） | 通过Vercel API删除域名绑定，重新添加到正确项目，域名恢复正常 |
 | 2026-04-02 | **GitHub push超时** — 本地领先origin/main 10个commit，网络超时未推送 | 待网络恢复后推送，或在CC终端手动执行 |
 
 ---
@@ -263,12 +263,12 @@ GitHub 80k+ ⭐ 仓库 [codecrafters-io/build-your-own-x](https://github.com/cod
 - **GitHub仓库**：`Cyril0404/stock-website`，最新 commit `8b568c4`（只有东莞证券）
 - **部署账号**：team_3S0syFN0683wFsywCBWHbt9Z（新账号 zifans-projects-12cbea83）
 - **域名**：`openstock.top` 原绑定旧项目 `stock-website-deploy`，已迁移到正确项目
-- **有效Token**：`vcp_4zS9Va4DpSXi1rjwrUk7uYSGb3T5MFQzZm76Se5T9xs6IWfUZN2Potrb`（TOOLS.md已记录）
+- **有效Token**：`vcp_VZZZZ_已遮蔽`（TOOLS.md已记录）
 
 ### 域名迁移记录
 1. 删除了旧项目 `stock-website-deploy`（holding openstock.top）
 2. `openstock.top` 已解除绑定，可重新配置到正确项目
-3. 新项目 `stock-website`（prj_ssbVTcr5iJQqaeCK8jndfxFSmsVf）已接管 GitHub 仓库
+3. 新项目 `stock-website`（prj_SSBVTC_已遮蔽）已接管 GitHub 仓库
 
 ---
 
