@@ -9,9 +9,16 @@ export async function GET() {
   const indicesObj: Record<string, any> = data.indices || {};
   const order = ['sh000001', 'sz399001', 'sz399006', 'sh000300'];
   const indicesArray = order.map(k => indicesObj[k]).filter(Boolean);
-  return NextResponse.json({
-    success: true,
-    data: indicesArray,
-    updated_at: data.updated_at
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      data: indicesArray,
+      updated_at: data.updated_at,
+    },
+    {
+      headers: {
+        "Cache-Control": "s-maxage=30",
+      },
+    }
+  );
 }
