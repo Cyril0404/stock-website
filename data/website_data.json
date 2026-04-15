@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-15 12:39",
+  "updated_at": "2026-04-15 12:44",
   "indices": {
     "sh000001": {
       "name": "上证指数",
@@ -426,28 +426,6 @@
       "mktcap": 697687.223248,
       "nmc": 619319.359472,
       "turnoverratio": 17.62634
-    },
-    {
-      "symbol": "bj920012",
-      "code": "920012",
-      "name": "创达新材",
-      "trade": "55.850",
-      "pricechange": 5.14,
-      "changepercent": 10.136,
-      "buy": "55.850",
-      "sell": "55.980",
-      "settlement": "50.710",
-      "open": "53.000",
-      "high": "59.800",
-      "low": "51.450",
-      "volume": 5878826,
-      "amount": 321161315,
-      "ticktime": "11:34:57",
-      "per": 31.554,
-      "pb": 3.46,
-      "mktcap": 275437.5673,
-      "nmc": 74105.505195,
-      "turnoverratio": 44.30608
     },
     {
       "symbol": "sz002589",
@@ -1265,28 +1243,6 @@
     }
   ],
   "limit_down": [
-    {
-      "symbol": "bj920305",
-      "code": "920305",
-      "name": "*ST云创",
-      "trade": "6.080",
-      "pricechange": -0.83,
-      "changepercent": -12.012,
-      "buy": "6.080",
-      "sell": "6.090",
-      "settlement": "6.910",
-      "open": "5.540",
-      "high": "6.780",
-      "low": "5.540",
-      "volume": 6312728,
-      "amount": 39482217,
-      "ticktime": "11:34:57",
-      "per": -4.606,
-      "pb": 1.341,
-      "mktcap": 80484.684,
-      "nmc": 49309.332,
-      "turnoverratio": 7.7838
-    },
     {
       "symbol": "sz301292",
       "code": "301292",
