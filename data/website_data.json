@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-17 09:07",
+  "updated_at": "2026-04-17 09:13",
   "indices": {
     "sh000001": {
       "name": "上证指数",
@@ -32,6 +32,40 @@
   },
   "limit_up": [],
   "limit_down": [],
-  "my_stocks": [],
+  "my_stocks": [
+    {
+      "code": "300548",
+      "name": "长芯博创",
+      "price": "0.0",
+      "pct": "0.0",
+      "high": "0.0",
+      "low": "0.0",
+      "turnover": "0.0%",
+      "pe": "210.08",
+      "mktcap": "703亿"
+    },
+    {
+      "code": "688037",
+      "name": "芯源微",
+      "price": "0.0",
+      "pct": "0.0",
+      "high": "0.0",
+      "low": "0.0",
+      "turnover": "0.0%",
+      "pe": "518.12",
+      "mktcap": "371亿"
+    },
+    {
+      "code": "603986",
+      "name": "兆易创新",
+      "price": "0.0",
+      "pct": "0.0",
+      "high": "0.0",
+      "low": "0.0",
+      "turnover": "0.0%",
+      "pe": "121.98",
+      "mktcap": "2010亿"
+    }
+  ],
   "source": "efinance+sina"
 }
